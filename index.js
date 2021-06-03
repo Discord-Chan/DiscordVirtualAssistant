@@ -2,9 +2,21 @@ const { Client, Collection } = require("discord.js");
 const { config } = require("dotenv");
 const {prefix, bot_info} = require('./config.json');
 
+const DisTube = require('distube');
+
+
 const client = new Client({
     disableEveryone: true
 });
+
+client.distube = new DisTube(client, { searchSongs: false, emitNewSongOnly: true });
+client.distube
+    .on("playSong", (message, queue, song) => message.channel.send(
+        `Spielt \`${song.name}\` - \`${song.formattedDuration}\`\nVorgeschlagen von: ${song.user} UwU`
+	))
+    .on("addSong", (message, queue, song ) => message.channel.send(
+        `${song.name} - \`${song.formattedDuration}\`\n wurde hinzugefügt von ${song.user}`
+    ))
 
 client.commands = new Collection();
 client.aliases = new Collection();

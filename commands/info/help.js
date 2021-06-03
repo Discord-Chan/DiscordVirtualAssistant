@@ -1,4 +1,4 @@
-const { RichEmbed } = require("discord.js");
+const { MessageEmbed } = require("discord.js");
 const { stripIndents } = require("common-tags");
 
 module.exports = {
@@ -17,7 +17,7 @@ module.exports = {
 }
 
 function getAll(client, message) {
-    const embed = new RichEmbed()
+    const embed = new MessageEmbed()
         .setColor("RANDOM")
 
     const commands = (category) => {
@@ -27,7 +27,7 @@ function getAll(client, message) {
             .join("\n");
     }
 
-    const info = client.categories
+    const info = this.client.categories
         .map(cat => stripIndents`**${cat[0].toUpperCase() + cat.slice(1)}** \n${commands(cat)}`)
         .reduce((string, category) => string + "\n" + category);
 
@@ -35,7 +35,7 @@ function getAll(client, message) {
 }
 
 function getCMD(client, message, input) {
-    const embed = new RichEmbed()
+    const embed = new MessageEmbed()
 
     const cmd = client.commands.get(input.toLowerCase()) || client.commands.get(client.aliases.get(input.toLowerCase()));
     
