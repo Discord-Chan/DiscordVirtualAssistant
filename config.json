@@ -1,5 +1,5 @@
 {
-    "prefix": "!",
+    "prefix": "*",
     "bot-age": 1,
     "words_array": ["Hi", "Bye"],
     "bot_info":{
