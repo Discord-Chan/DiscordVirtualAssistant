@@ -28,6 +28,7 @@
     "eslint": "^7.27.0",
     "ffmpeg-static": "^4.3.0",
     "random-puppy": "^1.1.0",
-    "rich-embed": "^1.1.3"
+    "rich-embed": "^1.1.3",
+    "snekfetch": "^4.0.4"
   }
 }
