@@ -117,4 +117,4 @@ client.distube
 // )
 // .on("searchDone", () => {})
 
-client.login(process.env.DISCORD_TOKEN)
+client.login("ODQ5Mjk2NzEwNzY0OTg2NDU4.Ga2u4a.hya79T0I-xc1kelCbiQ_LlAlBHDWYE5LI1IYfs")
