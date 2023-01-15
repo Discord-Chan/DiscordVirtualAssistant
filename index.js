@@ -1,122 +1,120 @@
-const { Client, Collection } = require("discord.js");
-const { config } = require("dotenv");
-const {prefix, bot_info} = require('./config.json');
+const { DisTube } = require('distube')
+const Discord = require('discord.js')
+const client = new Discord.Client({
+  intents: [
+    Discord.GatewayIntentBits.Guilds,
+    Discord.GatewayIntentBits.GuildMessages,
+    Discord.GatewayIntentBits.GuildVoiceStates,
+    Discord.GatewayIntentBits.MessageContent
+  ]
+})
+const fs = require('fs')
+const config = require('./config.json')
+const { SpotifyPlugin } = require('@distube/spotify')
+const { SoundCloudPlugin } = require('@distube/soundcloud')
+const { YtDlpPlugin } = require('@distube/yt-dlp')
 
-const DisTube = require('distube');
+client.config = require('./config.json')
+client.distube = new DisTube(client, {
+  leaveOnStop: false,
+  emitNewSongOnly: true,
+  emitAddSongWhenCreatingQueue: false,
+  emitAddListWhenCreatingQueue: false,
+  plugins: [
+    new SpotifyPlugin({
+      emitEventsAfterFetching: true
+    }),
+    new SoundCloudPlugin(),
+    new YtDlpPlugin()
+  ]
+})
+client.commands = new Discord.Collection()
+client.aliases = new Discord.Collection()
+client.emotes = config.emoji
 
-
-const client = new Client({
-    disableEveryone: true
-});
-
-client.distube = new DisTube(client, { searchSongs: false, emitNewSongOnly: true });
-client.distube
-    .on("playSong", (message, queue, song) => message.channel.send(
-        `Spielt \`${song.name}\` - \`${song.formattedDuration}\`\nVorgeschlagen von: ${song.user} UwU`
-	))
-    .on("addSong", (message, queue, song ) => message.channel.send(
-        `${song.name} - \`${song.formattedDuration}\`\n wurde hinzugefügt von ${song.user}`
-    ))
-
-client.commands = new Collection();
-client.aliases = new Collection();
-
-const RPC = require("discord-rpc");
-const rpc = new RPC.Client({
-    transport: "ipc"
-});
-
-["command"].forEach(handler => {
-    require(`./handlers/${handler}`)(client);
-});
-
-client.on("ready", () => {
-    console.log(`Hi, ${client.user.username} is now online!`);
-
-    client.user.setPresence({
-        status: "online",
-        game: {
-            name: "me getting developed",
-            type: "STREAMING"
-        }
-    }); 
-});
-
-
-config({
-    path: __dirname + "/.env"
+fs.readdir('./commands/', (err, files) => {
+  if (err) return console.log('Could not find any commands!')
+  const jsFiles = files.filter(f => f.split('.').pop() === 'js')
+  if (jsFiles.length <= 0) return console.log('Could not find any commands!')
+  jsFiles.forEach(file => {
+    const cmd = require(`./commands/${file}`)
+    console.log(`Loaded ${file}`)
+    client.commands.set(cmd.name, cmd)
+    if (cmd.aliases) cmd.aliases.forEach(alias => client.aliases.set(alias, cmd.name))
+  })
 })
 
-rpc.on("ready", () =>{
-    rpc.setActivity({
-        details: "Java and C#",
-        state: "Coding~",
-        startTimestamp: new Date(),
-        largeImageKey: "samsung-virtual-assistant-sam-3d",
-        largeImageText: "Visual Studio",
-        smallImageKey: "peace",
-        smallImageText: "Deathmaster- Level 100"
-    });
+client.on('ready', () => {
+  console.log(`${client.user.tag} is ready to play music.`)
+})
 
-    console.log("rich pressence is now active!")
-});
+client.on('messageCreate', async message => {
+  if (message.author.bot || !message.guild) return
+  const prefix = config.prefix
+  if (!message.content.startsWith(prefix)) return
+  const args = message.content.slice(prefix.length).trim().split(/ +/g)
+  const command = args.shift().toLowerCase()
+  const cmd = client.commands.get(command) || client.commands.get(client.aliases.get(command))
+  if (!cmd) return
+  if (cmd.inVoiceChannel && !message.member.voice.channel) {
+    return message.channel.send(`${client.emotes.error} | You must be in a voice channel!`)
+  }
+  try {
+    cmd.run(client, message, args)
+  } catch (e) {
+    console.error(e)
+    message.channel.send(`${client.emotes.error} | Error: \`${e}\``)
+  }
+})
 
-// When the bot's online, what's in these brackets will be executed
-client.on("ready", () => {
-    console.log("--------------------------------------");
-    console.log(bot_info.name);
-    console.log(bot_info.version);
-    console.log("--------------------------------------");
-    console.log(`Hi, ${client.user.username} is now online!`);
+const status = queue =>
+  `Volume: \`${queue.volume}%\` | Filter: \`${queue.filters.names.join(', ') || 'Off'}\` | Loop: \`${
+    queue.repeatMode ? (queue.repeatMode === 2 ? 'All Queue' : 'This Song') : 'Off'
+  }\` | Autoplay: \`${queue.autoplay ? 'On' : 'Off'}\``
+client.distube
+  .on('playSong', (queue, song) =>
+    queue.textChannel.send(
+      `${client.emotes.play} | Playing \`${song.name}\` - \`${song.formattedDuration}\`\nRequested by: ${
+        song.user
+      }\n${status(queue)}`
+    )
+  )
+  .on('addSong', (queue, song) =>
+    queue.textChannel.send(
+      `${client.emotes.success} | Added ${song.name} - \`${song.formattedDuration}\` to the queue by ${song.user}`
+    )
+  )
+  .on('addList', (queue, playlist) =>
+    queue.textChannel.send(
+      `${client.emotes.success} | Added \`${playlist.name}\` playlist (${
+        playlist.songs.length
+      } songs) to queue\n${status(queue)}`
+    )
+  )
+  .on('error', (channel, e) => {
+    if (channel) channel.send(`${client.emotes.error} | An error encountered: ${e.toString().slice(0, 1974)}`)
+    else console.error(e)
+  })
+  .on('empty', channel => channel.send('Voice channel is empty! Leaving the channel...'))
+  .on('searchNoResult', (message, query) =>
+    message.channel.send(`${client.emotes.error} | No result found for \`${query}\`!`)
+  )
+  .on('finish', queue => queue.textChannel.send('Finished!'))
+// // DisTubeOptions.searchSongs = true
+// .on("searchResult", (message, result) => {
+//     let i = 0
+//     message.channel.send(
+//         `**Choose an option from below**\n${result
+//             .map(song => `**${++i}**. ${song.name} - \`${song.formattedDuration}\``)
+//             .join("\n")}\n*Enter anything else or wait 60 seconds to cancel*`
+//     )
+// })
+// .on("searchCancel", message => message.channel.send(`${client.emotes.error} | Searching canceled`))
+// .on("searchInvalidAnswer", message =>
+//     message.channel.send(
+//         `${client.emotes.error} | Invalid answer! You have to enter the number in the range of the results`
+//     )
+// )
+// .on("searchDone", () => {})
 
-    // Set the user presence
-    client.user.setPresence({
-        status: "online",
-        activity: {
-            name: "getting developed!",
-            type: "STREAMING"
-        }
-    }); 
-});
-
-// When a message comes in, what's in these brackets will be executed
-client.on("message", async message => {
-    console.log(`${message.author.username} said: ${message.content}`);
-
-    if(message.content === `${prefix}ping`){
-        message.channel.send('Pong!');
-    }
-    else if(message.content === 'Hi' || message.content === 'hi'){
-        message.channel.send('Hellu!');
-    }
-
-
-    if (message.author.bot) return;
-    if (!message.guild) return;
-    if (!message.content.startsWith(prefix)) return;
-    if (!message.member) message.member = await message.guild.fetchMember(message);
-
-    const args = message.content.slice(prefix.length).trim().split(/ +/g);
-    const cmd = args.shift().toLowerCase();
-    
-    if (cmd.length === 0) return;
-    
-    let command = client.commands.get(cmd);
-    if (!command) command = client.commands.get(client.aliases.get(cmd));
-
-    if (command) 
-        command.run(client, message, args);
-});
-
-
-
-
-
-
-
-
-rpc.login({
-    clientId: "849296710764986458"
-});
-// Login the bot
-client.login(process.env.TOKEN);
+client.login(process.env.DISCORD_TOKEN)

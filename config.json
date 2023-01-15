@@ -1,9 +1,11 @@
 {
-    "prefix": "*",
-    "bot-age": 1,
-    "words_array": ["Hi", "Bye"],
-    "bot_info":{
-        "name": "virtual assistant",
-        "version": "1.0"
-    }
+  "prefix": "*",
+  "emoji": {
+    "play": "▶️",
+    "stop": "⏹️",
+    "queue": "📄",
+    "success": "☑️",
+    "repeat": "🔁",
+    "error": "❌"
+  }
 }
